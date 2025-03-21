@@ -8,44 +8,57 @@
 #include <yapb.h>
 
 ConVar cv_has_team_semiclip ("has_team_semiclip", "0", "When enabled, bots will not try to avoid teammates on their way. Assuming some of the semiclip plugins are in use.");
-ConVar cv_zmhgoal("human_zmhgoal", "1", "When enabled, then ct bots will be try found sniper and camp point for camping");
+//ConVar cv_zmhgoal("human_zmhgoal", "1", "When enabled, then ct bots will be try found sniper and camp point for camping");
 ConVar cv_graph_slope_height ("graph_slope_height", "24.0", "Determines the maximum slope height change between the current and next node to consider the current link as a jump link. Only for generated graphs.", true, 12.0f, 48.0f);
 int Bot::findBestGoal() {
-   if (m_isCreature) {
+   if (GameFlags::ZombieMod && m_isCreature) {
       if (!graph.random()) {
          return graph.random();
       }
    }
-   // for cts found hide spot
-   if (!m_isCreature && cv_zmhgoal) {
-      if (!graph.m_campPoints.empty()) {
-         return graph.m_campPoints.random();
-      }
-      if (!graph.m_sniperPoints.empty()) {
-         return graph.m_sniperPoints.random();
-      }
-   }
-/* good code
-int Bot::findBestGoal () {
-   if (m_isCreature) {
+   // for cts found only random nodes
+   if (GameFlags::ZombieMod && !m_isCreature && cv_zmhgoal.as < int >() == 0) {
       if (!graph.random()) {
          return graph.random();
       }
-   }
-   */
+      // for cts found hide spot sniper and camp points
+      if (GameFlags::ZombieMod && !m_isCreature && cv_zmhgoal.as < int >() == 1) {
+         IntArray* ZombieoffensiveNodes = nullptr;
+         IntArray* ZombiedefensiveNodes = nullptr;
 
-   /* Old code by jeefo
-   if (m_isCreature) {
-      if (!graph.m_campPoints.empty ()) {
-         return graph.m_campPoints.random ();
-      }
+         switch (m_team) {
+         case Team::Terrorist:
+            ZombieoffensiveNodes = &graph.m_campPoints;
+            ZombiedefensiveNodes = &graph.m_sniperPoints;
+            break;
 
-      if (!graph.m_goalPoints.empty ()) {
-         return graph.m_goalPoints.random ();
+         case Team::CT:
+         default:
+            ZombieoffensiveNodes = &graph.m_campPoints;
+            ZombiedefensiveNodes = &graph.m_sniperPoints;
+            break;
+         }
+         if (!graph.m_campPoints.empty() || !graph.m_sniperPoints.empty()) {
+            return graph.m_campPoints.random() | graph.m_sniperPoints.random() &
+               findGoalPost(GoalTactic::Camp, ZombiedefensiveNodes, ZombieoffensiveNodes);
+         }
+
+         //if (graph.m_campPoints.random() || graph.m_sniperPoints.random()) {
+         if (graph.getNearest(pev->origin, 1024.0f, NodeFlag::Camp)) {
+            startTask(Task::Camp, TaskPri::Camp, kInvalidNodeIndex, game.time() + rg(cv_camping_time_min.as <float>(), cv_camping_time_max.as <float>()), true); // push camp task on to stack
+            return graph.getNearest(pev->origin, 1024.0f, NodeFlag::Camp);
+         }
+         // for cts found only rescue and goal point's better for zombie escape mode
+         if (GameFlags::ZombieMod && !m_isCreature && cv_zmhgoal.as < int >() == 2) {
+            if (!graph.m_goalPoints.empty()) {
+               return graph.m_goalPoints.random();
+            }
+            if (!graph.m_rescuePoints.empty()) {
+               return graph.m_rescuePoints.random();
+            }
+         }
       }
-      return graph.random ();
    }
-   */
    // chooses a destination (goal) node for a bot
    if (m_team == Team::Terrorist && game.mapIs (MapFlags::Demolition)) {
       auto result = findBestGoalWhenBombAction ();

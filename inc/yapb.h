@@ -898,6 +898,7 @@ private:
 #include "fakeping.h"
 
 // very global convars
+extern ConVar cv_zmhgoal;
 extern ConVar cv_jasonmode;
 extern ConVar cv_radio_mode;
 extern ConVar cv_ignore_enemies;

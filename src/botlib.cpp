@@ -38,7 +38,7 @@ ConVar cv_pickup_ammo_and_kits ("pickup_ammo_and_kits", "0", "Allows bots pickup
 ConVar cv_pickup_best ("pickup_best", "1", "Allows or disallows bots to pickup best weapons.");
 ConVar cv_ignore_objectives ("ignore_objectives", "0", "Allows or disallows bots to do map objectives, i.e. plant/defuse bombs, and save hostages.");
 ConVar cv_smoke_grenade_checks ("smoke_grenade_checks", "2", "Affect bot's vision by smoke clouds.", true, 0.0f, 2.0f);
-
+ConVar cv_zmhgoal("human_zmhgoal", "1", "When enabled, then ct bots will be going to position \nAllowed values: '0', '1', '2'\n0 - is random node none position for ct's better for zombie biohazard or other classicaly zombie mode\n1 - is a camp and sniper position for ct's better for zombie plague\n2 - is a goal and rescue position better for zombie escape only", true, 0.0f, 2.0f);
 // game console variables
 ConVar mp_c4timer ("mp_c4timer", nullptr, Var::GameRef);
 ConVar mp_buytime ("mp_buytime", nullptr, Var::GameRef, true, "1");
@@ -2154,29 +2154,63 @@ void Bot::filterTasks() {
       seekCoverDesire = 0.0f;
    }
    // zombie bots has more hunt desire fixes by Adaira and Mysticpawn
-   if (m_team == Team::Terrorist && m_isCreature && huntEnemyDesire > 2048.0f || seekCoverDesire > 2048.0f && (m_states & Sense::SeeingEnemy | Sense::SuspectEnemy | Sense::HearingEnemy)) {
+   if (GameFlags::ZombieMod && m_team == Team::Terrorist && m_isCreature && huntEnemyDesire > 2048.0f || seekCoverDesire > 2048.0f && (m_states & Sense::SeeingEnemy | Sense::SuspectEnemy | Sense::HearingEnemy)) {
       huntEnemyDesire = TaskPri::Attack;
       seekCoverDesire = TaskPri::SeekCover;
       refreshEnemyPredict();
-      startTask(Task::MoveToPosition, TaskPri::MoveToPosition, graph.getNearest(m_enemy->v.origin) || graph.getNearest(m_lastEnemy->v.origin), 1024.0f, true);
-      startTask(Task::SeekCover, seekCoverDesire, graph.getNearest(m_enemy->v.origin) || graph.getNearest(m_lastEnemy->v.origin), 1024.0f, true);
-      startTask(Task::Hunt, huntEnemyDesire, graph.getNearest(m_enemy->v.origin) || graph.getNearest(m_lastEnemy->v.origin), 1024.0f, true);
+      startTask(Task::MoveToPosition, TaskPri::MoveToPosition, graph.getNearest(m_enemy->v.origin) | graph.getNearest(m_lastEnemy->v.origin), 1024.0f, true);
+      startTask(Task::SeekCover, seekCoverDesire, graph.getNearest(m_enemy->v.origin) | graph.getNearest(m_lastEnemy->v.origin), 1024.0f, true);
+      startTask(Task::Hunt, huntEnemyDesire, graph.getNearest(m_enemy->v.origin) | graph.getNearest(m_lastEnemy->v.origin), 1024.0f, true);
       refreshEnemyPredict();
+      m_checkFall = true;
       //graph.random();
      //startTask(Task::Hunt, huntEnemyDesire, graph.getNearest(m_enemy->v.origin) || graph.getNearest(m_lastEnemy->v.origin), 1024.0f, true);
    }
-
-   if (!m_isCreature && (m_states & Sense::SeeingEnemy | Sense::SuspectEnemy | Sense::HearingEnemy)) {
+   if (GameFlags::ZombieMod && !m_isCreature && (m_states & Sense::SeeingEnemy) | (m_states & Sense::SuspectEnemy) | (m_states & Sense::HearingEnemy) && cv_zmhgoal.as < int >() == 1) {
       refreshEnemyPredict();
-      if (!graph.m_campPoints.empty()) {
-         graph.m_campPoints.random();
-         Task::Camp, TaskPri::Camp;
+      IntArray* ZombieoffensiveNodes = nullptr;
+      IntArray* ZombiedefensiveNodes = nullptr;
+
+      switch (m_team) {
+      case Team::Terrorist:
+         ZombieoffensiveNodes = &graph.m_campPoints;
+         ZombiedefensiveNodes = &graph.m_sniperPoints;
+         break;
+
+      case Team::CT:
+      default:
+         ZombieoffensiveNodes = &graph.m_campPoints;
+         ZombiedefensiveNodes = &graph.m_sniperPoints;
+         break;
       }
-      if (!graph.m_sniperPoints.empty()) {
-         graph.m_sniperPoints.random();
-         Task::Camp, TaskPri::Camp;
+      //startTask(Task::MoveToPosition, TaskPri::Camp, graph.getNearest(m_enemy->v.origin) | graph.getNearest(m_lastEnemy->v.origin), 1024.0f, true);
+      m_checkFall = true;
+      if (!graph.m_campPoints.empty() || !graph.m_sniperPoints.empty() && cv_zmhgoal.as < int >() == 1) {
+         findGoalPost(GoalTactic::Camp, ZombiedefensiveNodes, ZombieoffensiveNodes);
+         //startTask(Task::MoveToPosition, TaskPri::Camp, index, 500.0f, true);
+      }
+      //if (graph.m_campPoints.random() || graph.m_sniperPoints.random()) {
+      if (graph.getNearest(pev->origin, 1024.0f, NodeFlag::Camp) && cv_zmhgoal.as < int >() == 1) {
+         // cts stop moving all need camping
+         startTask(Task::Camp, TaskPri::Camp, kInvalidNodeIndex, game.time() + rg(cv_camping_time_min.as <float>(), cv_camping_time_max.as <float>()), true); // push camp task on to stack
       }
    }
+   /* bots ct will be stay in random place for camping this is also good for killing zombie but need fix
+         if (!graph.m_campPoints.empty() || !graph.m_sniperPoints.empty()) {
+         findGoalPost(GoalTactic::Camp, ZombiedefensiveNodes, ZombieoffensiveNodes);
+      }
+
+      //if (graph.m_campPoints.random() || graph.m_sniperPoints.random()) {
+      if (graph.getNearest(pev->origin, 1024.0f, NodeFlag::Camp)) {
+         startTask(Task::Camp, TaskPri::Camp, kInvalidNodeIndex, game.time() + rg(cv_camping_time_min.as <float>(), cv_camping_time_max.as <float>()), true); // push camp task on to stack
+      }
+      if (!graph.m_campPoints.empty() || !graph.m_sniperPoints.empty()) {
+         const int index = findDefendNode(graph.m_campPoints.random() || graph.m_sniperPoints.random());
+         startTask(Task::MoveToPosition, TaskPri::Camp, index, 500.0f, true);
+
+      }
+   }
+   */
    // blinded behavior
    blindedDesire = m_blindTime > game.time () ? TaskPri::Blind : 0.0f;
 
