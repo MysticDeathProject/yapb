@@ -332,7 +332,7 @@ void Bot::updatePickups () {
          return true;
       }
 
-      // seeing enemy now, not good time to pickup anything
+      // seeing enemy now, not good time to pickup anything added small fix
       else if (m_states & Sense::SeeingEnemy) {
          return true;
       }
@@ -587,29 +587,34 @@ void Bot::updatePickups () {
             if (pickupType == Pickup::DroppedC4) {
                m_destOrigin = origin; // ensure we reached dropped bomb
 
-               pushChatterMessage (Chatter::FoundC4); // play info about that
-               clearSearchNodes ();
+               pushChatterMessage(Chatter::FoundC4); // play info about that
+               clearSearchNodes();
             }
             else if (pickupType == Pickup::Hostage) {
-               m_ignoredItems.push (ent);
+               m_ignoredItems.push(ent);
                allowPickup = false;
 
                if (!m_defendHostage && m_personality
                   != Personality::Rusher && m_difficulty >= Difficulty::Normal
-                  && rg.chance (15)
-                  && m_timeCamping + 15.0f < game.time ()
-                  && numFriendsNear (pev->origin, 384.0f) < 3) {
+                  && rg.chance(15)
+                  && m_timeCamping + 15.0f < game.time()
+                  && numFriendsNear(pev->origin, 384.0f) < 3) {
 
-                  const int index = findDefendNode (origin);
+                  const int index = findDefendNode(origin);
 
-                  startTask (Task::Camp, TaskPri::Camp, kInvalidNodeIndex, game.time () + rg (cv_camping_time_min.as <float> (), cv_camping_time_max.as <float> ()), true); // push camp task on to stack
-                  startTask (Task::MoveToPosition, TaskPri::MoveToPosition, index, game.time () + rg (3.0f, 6.0f), true); // push move command
-
+                  startTask(Task::Camp, TaskPri::Camp, kInvalidNodeIndex, game.time() + rg(cv_camping_time_min.as <float>(), cv_camping_time_max.as <float>()), true); // push camp task on to stack
+                  startTask(Task::MoveToPosition, TaskPri::MoveToPosition, index, game.time() + rg(3.0f, 6.0f), true); // push move command
+                  /*
+                  // zombie bots has more hunt desire NEED MORE TESTS
+                  if (m_isCreature && (m_states & Sense::SeeingEnemy)) {
+                     startTask(Task::SeekCover, TaskPri::SeekCover, kInvalidNodeIndex, 0.0f, true);
+                  }
+                  */
                   // decide to duck or not to duck
-                  selectCampButtons (index);
+                  selectCampButtons(index);
                   m_defendHostage = true;
 
-                  pushChatterMessage (Chatter::GoingToGuardHostages); // play info about that
+                  pushChatterMessage(Chatter::GoingToGuardHostages); // play info about that
                   return;
                }
             }
@@ -619,31 +624,37 @@ void Bot::updatePickups () {
                if (!m_defendedBomb) {
                   m_defendedBomb = true;
 
-                  const int index = findDefendNode (origin);
-                  const auto &path = graph[index];
+                  const int index = findDefendNode(origin);
+                  const auto& path = graph[index];
 
-                  const float bombTimer = mp_c4timer.as <float> ();
-                  const float timeMidBlowup = bots.getTimeBombPlanted () + (bombTimer * 0.5f + bombTimer * 0.25f) - graph.calculateTravelTime (pev->maxspeed, pev->origin, path.origin);
+                  const float bombTimer = mp_c4timer.as <float>();
+                  const float timeMidBlowup = bots.getTimeBombPlanted() + (bombTimer * 0.5f + bombTimer * 0.25f) - graph.calculateTravelTime(pev->maxspeed, pev->origin, path.origin);
 
-                  if (timeMidBlowup > game.time ()) {
-                     clearTask (Task::MoveToPosition); // remove any move tasks
+                  if (timeMidBlowup > game.time()) {
+                     clearTask(Task::MoveToPosition); // remove any move tasks
 
-                     startTask (Task::Camp, TaskPri::Camp, kInvalidNodeIndex, timeMidBlowup, true); // push camp task on to stack
-                     startTask (Task::MoveToPosition, TaskPri::MoveToPosition, index, timeMidBlowup, true); // push  move command
+                     startTask(Task::Camp, TaskPri::Camp, kInvalidNodeIndex, timeMidBlowup, true); // push camp task on to stack
+                     startTask(Task::MoveToPosition, TaskPri::MoveToPosition, index, timeMidBlowup, true); // push  move command
 
-                     // decide to duck or not to duck
-                     selectCampButtons (index);
-
-                     if (rg.chance (85) && numEnemiesNear (pev->origin, 768.0f) < 4) {
-                        pushChatterMessage (Chatter::DefendingBombsite);
+                     /*
+                     // zombie bots has more hunt desire
+                     if (m_isCreature && (m_states & Sense::SeeingEnemy)) {
+                        startTask(Task::SeekCover, TaskPri::SeekCover, kInvalidNodeIndex, 0.0f, true);
                      }
-                  }
-                  else {
-                     pushRadioMessage (Radio::ShesGonnaBlow); // issue an additional radio message
+                     */
+                        // decide to duck or not to duck
+                        selectCampButtons(index);
+
+                        if (rg.chance(85) && numEnemiesNear(pev->origin, 768.0f) < 4) {
+                           pushChatterMessage(Chatter::DefendingBombsite);
+                        }
+                     }
+                     else {
+                        pushRadioMessage(Radio::ShesGonnaBlow); // issue an additional radio message
+                     }
                   }
                }
             }
-         }
          else if (m_team == Team::CT) {
             if (pickupType == Pickup::Hostage) {
                if (game.isNullEntity (ent) || ent->v.health <= 0) {
@@ -2014,9 +2025,9 @@ void Bot::setConditions () {
    filterTasks ();
 }
 
-void Bot::filterTasks () {
+void Bot::filterTasks() {
    // initialize & calculate the desire for all actions based on distances, emotions and other stuff
-   getTask ();
+   getTask();
 
    float tempFear = m_fearLevel;
    float tempAgression = m_agressionLevel;
@@ -2024,8 +2035,8 @@ void Bot::filterTasks () {
    // decrease fear if players near
    int friendlyNum = 0;
 
-   if (!m_lastEnemyOrigin.empty ()) {
-      friendlyNum = numFriendsNear (pev->origin, 500.0f) - numEnemiesNear (m_lastEnemyOrigin, 500.0f);
+   if (!m_lastEnemyOrigin.empty()) {
+      friendlyNum = numFriendsNear(pev->origin, 500.0f) - numEnemiesNear(m_lastEnemyOrigin, 500.0f);
    }
 
    if (friendlyNum > 0) {
@@ -2033,21 +2044,21 @@ void Bot::filterTasks () {
    }
 
    // increase/decrease fear/aggression if bot uses a sniping weapon to be more careful
-   if (usesSniper ()) {
+   if (usesSniper()) {
       tempFear = tempFear * 1.5f;
       tempAgression = tempAgression * 0.5f;
    }
-   auto &filter = bots.getFilters ();
+   auto& filter = bots.getFilters();
 
    // bot found some item to use?
-   if (!game.isNullEntity (m_pickupItem) && getCurrentTaskId () != Task::EscapeFromBomb) {
+   if (!game.isNullEntity(m_pickupItem) && getCurrentTaskId() != Task::EscapeFromBomb) {
       m_states |= Sense::PickupItem;
 
       if (m_pickupType == Pickup::Button) {
          filter[Task::PickupItem].desire = 50.0f; // always pickup button
       }
       else {
-         filter[Task::PickupItem].desire = cr::max (50.0f, 500.0f - pev->origin.distance (game.getEntityOrigin (m_pickupItem)) * 0.2f);
+         filter[Task::PickupItem].desire = cr::max(50.0f, 500.0f - pev->origin.distance(game.getEntityOrigin(m_pickupItem)) * 0.2f);
       }
    }
    else {
@@ -2056,30 +2067,30 @@ void Bot::filterTasks () {
    }
 
    // calculate desire to attack
-   if ((m_states & Sense::SeeingEnemy) && reactOnEnemy ()) {
+   if ((m_states & Sense::SeeingEnemy) && reactOnEnemy()) {
       filter[Task::Attack].desire = TaskPri::Attack;
    }
    else {
       filter[Task::Attack].desire = 0.0f;
    }
-   float &seekCoverDesire = filter[Task::SeekCover].desire;
-   float &huntEnemyDesire = filter[Task::Hunt].desire;
-   float &blindedDesire = filter[Task::Blind].desire;
+   float& seekCoverDesire = filter[Task::SeekCover].desire;
+   float& huntEnemyDesire = filter[Task::Hunt].desire;
+   float& blindedDesire = filter[Task::Blind].desire;
 
    // calculate desires to seek cover or hunt
-   if (util.isPlayer (m_lastEnemy) && !m_lastEnemyOrigin.empty () && !m_hasC4) {
+   if (util.isPlayer(m_lastEnemy) && !m_lastEnemyOrigin.empty() && !m_hasC4) {
       const float retreatLevel = (100.0f - (m_healthValue > 70.0f ? 100.0f : m_healthValue)) * tempFear; // retreat level depends on bot health
 
       if (m_isCreature ||
          (m_numEnemiesLeft > m_numFriendsLeft / 2
-            && m_retreatTime < game.time ()
-            && m_seeEnemyTime - rg (2.0f, 4.0f) < game.time ())) {
+            && m_retreatTime < game.time()
+            && m_seeEnemyTime - rg(2.0f, 4.0f) < game.time())) {
 
-         float timeSeen = m_seeEnemyTime - game.time ();
-         float timeHeard = m_heardSoundTime - game.time ();
+         float timeSeen = m_seeEnemyTime - game.time();
+         float timeHeard = m_heardSoundTime - game.time();
          float ratio = 0.0f;
 
-         m_retreatTime = game.time () + rg (1.0f, 4.0f);
+         m_retreatTime = game.time() + rg(1.0f, 4.0f);
 
          if (timeSeen > timeHeard) {
             timeSeen += 10.0f;
@@ -2089,19 +2100,19 @@ void Bot::filterTasks () {
             timeHeard += 10.0f;
             ratio = timeHeard * 0.1f;
          }
-         const bool lowAmmo = isLowOnAmmo (m_currentWeapon, 0.18f);
-         const bool sniping = m_sniperStopTime > game.time () && lowAmmo;
+         const bool lowAmmo = isLowOnAmmo(m_currentWeapon, 0.18f);
+         const bool sniping = m_sniperStopTime > game.time() && lowAmmo;
 
          if (m_isCreature) {
             ratio = 0.0f;
          }
-         if (bots.isBombPlanted () || m_isStuck || usesKnife ()) {
+         if (bots.isBombPlanted() || m_isStuck || usesKnife()) {
             ratio /= 3.0f; // reduce the seek cover desire if bomb is planted
          }
-         else if (m_isVIP || m_isReloading || (sniping && usesSniper ())) {
+         else if (m_isVIP || m_isReloading || (sniping && usesSniper())) {
             ratio *= 3.0f; // triple the seek cover desire if bot is VIP or reloading
          }
-         else if (game.is (GameFlags::CSDM)) {
+         else if (game.is(GameFlags::CSDM)) {
             ratio = 0.0f;
          }
          else {
@@ -2114,17 +2125,17 @@ void Bot::filterTasks () {
       }
 
       // if half of the round is over, allow hunting
-      if (getCurrentTaskId () != Task::EscapeFromBomb
-         && game.isNullEntity (m_enemy)
+      if (getCurrentTaskId() != Task::EscapeFromBomb
+         && game.isNullEntity(m_enemy)
          && !m_isVIP
-         && bots.getRoundMidTime () < game.time ()
+         && bots.getRoundMidTime() < game.time()
          && !m_hasHostage
          && !m_isUsingGrenade
-         && m_currentNodeIndex != graph.getNearest (m_lastEnemyOrigin)
+         && m_currentNodeIndex != graph.getNearest(m_lastEnemyOrigin)
          && m_personality != Personality::Careful
          && !cv_ignore_enemies) {
 
-         float desireLevel = 4096.0f - ((1.0f - tempAgression) * m_lastEnemyOrigin.distance (pev->origin));
+         float desireLevel = 4096.0f - ((1.0f - tempAgression) * m_lastEnemyOrigin.distance(pev->origin));
 
          desireLevel = (100.0f * desireLevel) / 4096.0f;
          desireLevel -= retreatLevel;
@@ -2142,12 +2153,30 @@ void Bot::filterTasks () {
       huntEnemyDesire = 0.0f;
       seekCoverDesire = 0.0f;
    }
-
-   // zombie bots has more hunt desire
-   if (m_isCreature && huntEnemyDesire > 16.0f) {
+   // zombie bots has more hunt desire fixes by Adaira and Mysticpawn
+   if (m_team == Team::Terrorist && m_isCreature && huntEnemyDesire > 2048.0f || seekCoverDesire > 2048.0f && (m_states & Sense::SeeingEnemy | Sense::SuspectEnemy | Sense::HearingEnemy)) {
       huntEnemyDesire = TaskPri::Attack;
+      seekCoverDesire = TaskPri::SeekCover;
+      refreshEnemyPredict();
+      startTask(Task::MoveToPosition, TaskPri::MoveToPosition, graph.getNearest(m_enemy->v.origin) || graph.getNearest(m_lastEnemy->v.origin), 1024.0f, true);
+      startTask(Task::SeekCover, seekCoverDesire, graph.getNearest(m_enemy->v.origin) || graph.getNearest(m_lastEnemy->v.origin), 1024.0f, true);
+      startTask(Task::Hunt, huntEnemyDesire, graph.getNearest(m_enemy->v.origin) || graph.getNearest(m_lastEnemy->v.origin), 1024.0f, true);
+      refreshEnemyPredict();
+      //graph.random();
+     //startTask(Task::Hunt, huntEnemyDesire, graph.getNearest(m_enemy->v.origin) || graph.getNearest(m_lastEnemy->v.origin), 1024.0f, true);
    }
 
+   if (!m_isCreature && (m_states & Sense::SeeingEnemy | Sense::SuspectEnemy | Sense::HearingEnemy)) {
+      refreshEnemyPredict();
+      if (!graph.m_campPoints.empty()) {
+         graph.m_campPoints.random();
+         Task::Camp, TaskPri::Camp;
+      }
+      if (!graph.m_sniperPoints.empty()) {
+         graph.m_sniperPoints.random();
+         Task::Camp, TaskPri::Camp;
+      }
+   }
    // blinded behavior
    blindedDesire = m_blindTime > game.time () ? TaskPri::Blind : 0.0f;
 
@@ -3437,10 +3466,10 @@ void Bot::logic () {
    m_lastDamageType = -1; // reset damage
 }
 
-void Bot::spawned () {
-   if (game.is (GameFlags::CSDM | GameFlags::ZombieMod)) {
-      newRound ();
-      clearTasks ();
+void Bot::spawned() {
+   if (game.is(GameFlags::CSDM | GameFlags::ZombieMod)) {
+      newRound();
+      clearTasks();
    }
 }
 

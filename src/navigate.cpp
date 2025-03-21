@@ -8,12 +8,36 @@
 #include <yapb.h>
 
 ConVar cv_has_team_semiclip ("has_team_semiclip", "0", "When enabled, bots will not try to avoid teammates on their way. Assuming some of the semiclip plugins are in use.");
+ConVar cv_zmhgoal("human_zmhgoal", "1", "When enabled, then ct bots will be try found sniper and camp point for camping");
 ConVar cv_graph_slope_height ("graph_slope_height", "24.0", "Determines the maximum slope height change between the current and next node to consider the current link as a jump link. Only for generated graphs.", true, 12.0f, 48.0f);
-
+int Bot::findBestGoal() {
+   if (m_isCreature) {
+      if (!graph.random()) {
+         return graph.random();
+      }
+   }
+   // for cts found hide spot
+   if (!m_isCreature && cv_zmhgoal) {
+      if (!graph.m_campPoints.empty()) {
+         return graph.m_campPoints.random();
+      }
+      if (!graph.m_sniperPoints.empty()) {
+         return graph.m_sniperPoints.random();
+      }
+   }
+/* good code
 int Bot::findBestGoal () {
    if (m_isCreature) {
-      if (!graph.m_terrorPoints.empty ()) {
-         return graph.m_terrorPoints.random ();
+      if (!graph.random()) {
+         return graph.random();
+      }
+   }
+   */
+
+   /* Old code by jeefo
+   if (m_isCreature) {
+      if (!graph.m_campPoints.empty ()) {
+         return graph.m_campPoints.random ();
       }
 
       if (!graph.m_goalPoints.empty ()) {
@@ -21,7 +45,7 @@ int Bot::findBestGoal () {
       }
       return graph.random ();
    }
-
+   */
    // chooses a destination (goal) node for a bot
    if (m_team == Team::Terrorist && game.mapIs (MapFlags::Demolition)) {
       auto result = findBestGoalWhenBombAction ();
