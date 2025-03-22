@@ -21,44 +21,22 @@ int Bot::findBestGoal() {
       if (!graph.random()) {
          return graph.random();
       }
+   }
       // for cts found hide spot sniper and camp points
-      if (GameFlags::ZombieMod && !m_isCreature && cv_zmhgoal.as < int >() == 1) {
-         IntArray* ZombieoffensiveNodes = nullptr;
-         IntArray* ZombiedefensiveNodes = nullptr;
-
-         switch (m_team) {
-         case Team::Terrorist:
-            ZombieoffensiveNodes = &graph.m_campPoints;
-            ZombiedefensiveNodes = &graph.m_sniperPoints;
-            break;
-
-         case Team::CT:
-         default:
-            ZombieoffensiveNodes = &graph.m_campPoints;
-            ZombiedefensiveNodes = &graph.m_sniperPoints;
-            break;
+   if (GameFlags::ZombieMod && !m_isCreature && cv_zmhgoal.as < int >() == 1) {
+      if (!graph.m_campPoints.empty() || !graph.m_sniperPoints.empty()) {
+         return graph.m_campPoints.random() | graph.m_sniperPoints.random();
+      }
+      if (GameFlags::ZombieMod && !m_isCreature && cv_zmhgoal.as < int >() == 2) {
+         if (!graph.m_goalPoints.empty()) {
+            return graph.m_goalPoints.random();
          }
-         if (!graph.m_campPoints.empty() || !graph.m_sniperPoints.empty()) {
-            return graph.m_campPoints.random() | graph.m_sniperPoints.random() &
-               findGoalPost(GoalTactic::Camp, ZombiedefensiveNodes, ZombieoffensiveNodes);
-         }
-
-         //if (graph.m_campPoints.random() || graph.m_sniperPoints.random()) {
-         if (graph.getNearest(pev->origin, 1024.0f, NodeFlag::Camp)) {
-            startTask(Task::Camp, TaskPri::Camp, kInvalidNodeIndex, game.time() + rg(cv_camping_time_min.as <float>(), cv_camping_time_max.as <float>()), true); // push camp task on to stack
-            return graph.getNearest(pev->origin, 1024.0f, NodeFlag::Camp);
-         }
-         // for cts found only rescue and goal point's better for zombie escape mode
-         if (GameFlags::ZombieMod && !m_isCreature && cv_zmhgoal.as < int >() == 2) {
-            if (!graph.m_goalPoints.empty()) {
-               return graph.m_goalPoints.random();
-            }
-            if (!graph.m_rescuePoints.empty()) {
-               return graph.m_rescuePoints.random();
-            }
+         if (!graph.m_rescuePoints.empty()) {
+            return graph.m_rescuePoints.random();
          }
       }
    }
+      
    // chooses a destination (goal) node for a bot
    if (m_team == Team::Terrorist && game.mapIs (MapFlags::Demolition)) {
       auto result = findBestGoalWhenBombAction ();
