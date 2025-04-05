@@ -2154,38 +2154,49 @@ void Bot::filterTasks() {
       huntEnemyDesire = 0.0f;
       seekCoverDesire = 0.0f;
    }
+
    // zombie bots has more hunt desire fixes by Adaira and Mysticpawn
    // maybe need add this check game.isNullEntity(m_enemy) || game.isNullEntity(m_lastEnemy) || util.isAlive(m_enemy) || util.isAlive(m_lastEnemy) 
-   if (GameFlags::ZombieMod && (m_isCreature) && (huntEnemyDesire > 100.0f || seekCoverDesire > 100.0f) && (m_states & Sense::SeeingEnemy | Sense::SuspectEnemy | Sense::HearingEnemy)) {
+   if (game.is(GameFlags::ZombieMod) && m_isCreature && m_isOnInfectedTeam && (huntEnemyDesire > 40.0f || seekCoverDesire > 40.0f)) {
       huntEnemyDesire = TaskPri::Attack;
       seekCoverDesire = TaskPri::SeekCover;
-      const auto tid = getCurrentTaskId();
+      huntEnemyDesire = 100.0f;
+      seekCoverDesire = 100.0f;
+      startDoubleJump(m_enemy);
+     const auto tid = getCurrentTaskId();
 
-      if (tid == Task::Normal || tid == Task::MoveToPosition && !m_isOnInfectedTeam)
-      {
-         completeTask(); // complete current task
-      }
-      startTask(Task::MoveToPosition, huntEnemyDesire, graph.getNearest(m_enemy->v.origin) | graph.getNearest(m_lastEnemy->v.origin), 100.0f, true);
-      startTask(Task::SeekCover, seekCoverDesire, graph.getNearest(m_enemy->v.origin) | graph.getNearest(m_lastEnemy->v.origin), 100.0f, true);
-      startTask(Task::Hunt, huntEnemyDesire, graph.getNearest(m_enemy->v.origin) | graph.getNearest(m_lastEnemy->v.origin), 100.0f, true);
-      refreshEnemyPredict();
+     if (tid == Task::Normal || tid == Task::MoveToPosition)
+     {
+     completeTask(); // complete current task
+     }
+     startTask(Task::SeekCover, seekCoverDesire, graph.getNearest(m_enemy->v.origin) | graph.getNearest(m_lastEnemy->v.origin), 100.0f, true);
+     startTask(Task::Hunt, huntEnemyDesire, graph.getNearest(m_enemy->v.origin) | graph.getNearest(m_lastEnemy->v.origin), 100.0f, true);
+   return;
    }
-      // FOR HUMANS FOUND CAMPING
-   if (GameFlags::ZombieMod && !m_isCreature && (m_team = Team::CT) && !graph.m_sniperPoints.empty() || !graph.m_campPoints.empty() && (cv_zmhgoal.as < int >() == 1) && (m_states & Sense::SeeingEnemy | Sense::SuspectEnemy | Sense::HearingEnemy)) {
-      refreshEnemyPredict();
-      IntArray* offensiveNodes = nullptr;
+
+   // FOR HUMANS FOUND CAMPING
+   if (game.is(GameFlags::ZombieMod) && !m_isCreature && !m_isOnInfectedTeam && (cv_zmhgoal.as < int >() == 1)) {
+	   IntArray* offensiveNodes = nullptr;
       IntArray* defensiveNodes = nullptr;
+      switch (m_team) {
+      case Team::CT:
+      default:
          offensiveNodes = &graph.m_campPoints;
          defensiveNodes = &graph.m_sniperPoints;
-
-      m_checkFall = true;
-
-         findGoalPost(GoalTactic::Camp, defensiveNodes, offensiveNodes);
-         findBestGoal();
-         // will be crash startTask(Task::MoveToPosition, TaskPri::Camp , graph.m_campPoints.random() | graph.m_campPoints.random(), 100.0f, true);
-         return;
+         findGoalPost(GoalTactic::Goal | GoalTactic::Camp, defensiveNodes, offensiveNodes);
+         //startTask(Task::MoveToPosition, TaskPri::Hide, offensiveNodes | graph.getNearest(defensiveNodes), 100.0f, true);
+         break;
+      
+      case Team::Terrorist:
+      findGoalPost(GoalTactic::Goal | GoalTactic::Camp, defensiveNodes, offensiveNodes);
+      break;
    }
+      //findGoalPost(GoalTactic::Camp, defensiveNodes, offensiveNodes);
+      findBestGoal();
+      reactOnEnemy();
 
+   }
+   
    // blinded behavior
    blindedDesire = m_blindTime > game.time () ? TaskPri::Blind : 0.0f;
 
@@ -2411,6 +2422,7 @@ bool Bot::reactOnEnemy () {
       if (pev->origin.distanceSq2d (m_enemy->v.origin) < cr::sqrf (118.0f)) {
          m_navTimeset = game.time ();
          m_isEnemyReachable = true;
+         //m_isEnemyReachable = true;
       }
       return m_isEnemyReachable;
    }
@@ -3070,7 +3082,7 @@ void Bot::update () {
    m_canChooseAimDirection = true;
    m_isAlive = util.isAlive (ent ());
    m_team = game.getTeam (ent ());
-   m_healthValue = cr::clamp (pev->health, 0.0f, 100.0f);
+   m_healthValue = cr::clamp (pev->health, 0.0f, 999999.0f); // fix for debug a value health
 
    if (m_team == Team::Terrorist && game.mapIs (MapFlags::Demolition)) {
       m_hasC4 = !!(pev->weapons & cr::bit (Weapon::C4));

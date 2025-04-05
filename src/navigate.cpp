@@ -11,23 +11,18 @@ ConVar cv_has_team_semiclip ("has_team_semiclip", "0", "When enabled, bots will 
 //ConVar cv_zmhgoal("human_zmhgoal", "1", "When enabled, then ct bots will be try found sniper and camp point for camping");
 ConVar cv_graph_slope_height ("graph_slope_height", "24.0", "Determines the maximum slope height change between the current and next node to consider the current link as a jump link. Only for generated graphs.", true, 12.0f, 48.0f);
 int Bot::findBestGoal() {
-   if (GameFlags::ZombieMod && m_isCreature) {
-      if (!graph.random()) {
-         return graph.random();
-      }
-   }
-   // for cts found only random nodes
-   if (GameFlags::ZombieMod && !m_isCreature && cv_zmhgoal.as < int >() == 0) {
-      if (!graph.random()) {
-         return graph.random();
+   if (game.is(GameFlags::ZombieMod) && m_isCreature) {
+      if (!graph.m_nodeNumbers.empty()) {
+         return graph.m_nodeNumbers.random();
       }
    }
       // for cts found hide spot sniper and camp points
-   if (GameFlags::ZombieMod && !m_isCreature && cv_zmhgoal.as < int >() == 1) {
+   if (game.is(GameFlags::ZombieMod) && !m_isCreature && cv_zmhgoal.as < int >() == 1) {
       if (!graph.m_campPoints.empty() || !graph.m_sniperPoints.empty()) {
+
          return graph.m_campPoints.random() | graph.m_sniperPoints.random();
       }
-      if (GameFlags::ZombieMod && !m_isCreature && cv_zmhgoal.as < int >() == 2) {
+      if (game.is(GameFlags::ZombieMod) && !m_isCreature && cv_zmhgoal.as < int >() == 2) {
          if (!graph.m_goalPoints.empty()) {
             return graph.m_goalPoints.random();
          }

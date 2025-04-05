@@ -372,7 +372,6 @@ void Bot::trackEnemies () {
 
 bool Bot::lookupEnemies () {
    // this function tries to find the best suitable enemy for the bot
-
    m_enemyParts = Visibility::None;
    m_enemyOrigin.clear ();
 
